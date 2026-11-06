@@ -1,6 +1,7 @@
 pub mod cpu;
 pub mod disk;
 pub mod gpu;
+pub mod monitor;
 pub mod network;
 pub mod process;
 pub mod ram;

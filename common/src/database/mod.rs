@@ -216,6 +216,7 @@ impl Database {
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.pragma_update(None, "auto_vacuum", "INCREMENTAL")?;
         Self::create_settings_table_if_not_exists(&conn)?;
+        crate::billing::ensure_schema(&conn)?;
         Ok(conn)
     }
 
@@ -265,6 +266,16 @@ impl Database {
             },
         };
         Ok(Database { conn, tables })
+    }
+
+    /// Raw connection (fork billing module).
+    pub fn connection(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// Raw mutable connection (fork billing module, transactions).
+    pub fn connection_mut(&mut self) -> &mut Connection {
+        &mut self.conn
     }
 
     pub fn user_version(&self) -> Result<i32, DatabaseError> {
@@ -322,6 +333,8 @@ impl Database {
                 )?;
             }
         }
+        // Fork: hourly energy kept forever for the electricity bill (never purged).
+        crate::billing::record_sample(&tx, sample)?;
         tx.commit()?;
         Ok(())
     }

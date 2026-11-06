@@ -26,6 +26,8 @@ pub struct Collector {
     hardware_info: HardwareInfo,
     last_update: Instant,
     process_limit: usize,
+    /// Fork: external monitor (DDC/CI brightness + presence).
+    monitor: sensors::monitor::MonitorTracker,
 }
 
 impl Collector {
@@ -140,6 +142,7 @@ impl Collector {
         // Hardware info
         clog!("\n========== GATHERING HARDWARE INFORMATION ==========\n");
         let hardware_info = gather_hardware_info(&sensors);
+        let monitor = sensors::monitor::MonitorTracker::start();
         clog!("Initialization complete");
 
         Ok(Collector {
@@ -148,6 +151,7 @@ impl Collector {
             hardware_info,
             last_update: Instant::now(),
             process_limit: 10,
+            monitor,
         })
     }
 
@@ -176,6 +180,6 @@ impl Collector {
         );
         let computed_data = compute_sensors(&raw_data, self.process_limit);
 
-        MetricSample::new(time, since_last_update, computed_data)
+        MetricSample::new(time, since_last_update, computed_data).with_monitor(self.monitor.reading(since_last_update))
     }
 }

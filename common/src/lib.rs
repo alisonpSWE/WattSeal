@@ -1,4 +1,5 @@
 pub mod autostart;
+pub mod billing;
 pub mod database;
 pub mod logging;
 pub mod paths;
@@ -21,8 +22,8 @@ pub use database::{CloseBehavior, Database, DatabaseEntry, DatabaseError, UiSett
 pub use singleton::SingletonGuard;
 pub use types::{
     AllTimeData, CPUData, ComputedSensorData, ConsumptionUnit, DiskData, EnergyUj, GPUData, HardwareInfo, IconData,
-    LabeledValue, MICROJOULES_PER_JOULE, MetricKind, MetricSample, NetworkData, ProcessData, RamData, SECONDS_PER_HOUR,
-    SecondaryValues, SensorData, TotalData,
+    LabeledValue, MICROJOULES_PER_JOULE, MetricKind, MetricSample, MonitorPowerState, MonitorReading, NetworkData,
+    ProcessData, RamData, SECONDS_PER_HOUR, SecondaryValues, SensorData, TotalData,
 };
 
 /// Exit code the UI subprocess uses to signal "stop the collector too".

@@ -30,6 +30,14 @@ impl DatabaseConnector {
             Err(e) => clog!("✗ Failed to save hardware info to database: {e}"),
         }
 
+        // Fork: import the pre-fork history once, then keep the tariff cache fresh.
+        match common::billing::backfill_from_history(db.connection_mut()) {
+            Ok(0) => {}
+            Ok(n) => clog!("✓ Imported {n} hour(s) of previous history into the bill history"),
+            Err(e) => clog!("✗ Failed to import previous history: {e}"),
+        }
+        spawn_billing_maintenance();
+
         let mut connector = Self {
             database: db,
             last_purge: Instant::now(),
@@ -69,5 +77,50 @@ impl DatabaseConnector {
         }
 
         result.map_err(|e| format!("Failed to save event data to database: {e}"))
+    }
+}
+
+/// Background thread: refreshes the ANEEL tariff cache every few hours and rewrites the daily CSV
+/// backup (`relatorios/historico-diario.csv`) every 30 min. Uses its own connection.
+fn spawn_billing_maintenance() {
+    let spawned = thread::Builder::new()
+        .name("billing-maintenance".into())
+        .spawn(|| {
+            let mut last_tariff: Option<Instant> = None;
+            loop {
+                if let Ok(mut db) = Database::new() {
+                    let settings = common::billing::load_settings(db.connection());
+                    let _ = common::billing::tariff::seed_defaults(db.connection(), &settings.distributor);
+                    let due = last_tariff.map_or(true, |t| t.elapsed() >= common::billing::tariff::REFRESH_INTERVAL);
+                    if due {
+                        let outcome = common::billing::tariff::refresh(db.connection_mut(), &settings.distributor);
+                        if outcome.errors.is_empty() {
+                            clog!(
+                                "✓ ANEEL tariff cache refreshed ({} period(s), {} flag month(s))",
+                                outcome.periods,
+                                outcome.flags
+                            );
+                            last_tariff = Some(Instant::now());
+                        } else {
+                            clog!("⚠ ANEEL tariff refresh: {}", outcome.errors.join(" | "));
+                            // Retry sooner after a failure (30 min) instead of waiting the full interval.
+                            last_tariff = Some(
+                                Instant::now()
+                                    .checked_sub(common::billing::tariff::REFRESH_INTERVAL - Duration::from_secs(1800))
+                                    .unwrap_or_else(Instant::now),
+                            );
+                        }
+                    }
+                    if let Err(e) =
+                        common::billing::export_daily_csv(db.connection(), &common::paths::reports_dir())
+                    {
+                        clog!("✗ Failed to write daily CSV backup: {e}");
+                    }
+                }
+                thread::sleep(Duration::from_secs(1800));
+            }
+        });
+    if let Err(e) = spawned {
+        clog!("✗ Failed to start billing maintenance thread: {e}");
     }
 }

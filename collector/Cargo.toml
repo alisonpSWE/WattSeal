@@ -14,7 +14,11 @@ windows = { version = "0.62.2", features = [
     "Win32_System_ProcessStatus",
     "Win32_System_Threading",
     "Win32_System_Diagnostics_ToolHelp",
-    "Win32_System_SystemInformation"
+    "Win32_System_SystemInformation",
+    "Win32_Devices_Display",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Power",
+    "Win32_UI_WindowsAndMessaging"
 ] }
 
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]

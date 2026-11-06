@@ -21,6 +21,8 @@ pub struct MetricSample {
     pub timestamp: SystemTime,
     pub duration: Duration,
     pub data: Vec<ComputedSensorData>,
+    /// Fork: external monitor reading (wall power, already AC side).
+    pub monitor: Option<MonitorReading>,
 }
 
 impl MetricSample {
@@ -29,7 +31,13 @@ impl MetricSample {
             timestamp,
             duration,
             data,
+            monitor: None,
         }
+    }
+
+    pub fn with_monitor(mut self, monitor: Option<MonitorReading>) -> Self {
+        self.monitor = monitor;
+        self
     }
 
     pub fn timestamp_ms(&self) -> i64 {
@@ -42,6 +50,58 @@ impl MetricSample {
     pub fn data(&self) -> &[ComputedSensorData] {
         &self.data
     }
+}
+
+/// Power state of a physical monitor as inferred by the collector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MonitorPowerState {
+    /// Lit and showing the desktop.
+    On,
+    /// Connected but asleep (Windows turned the screen off, or DDC/CI reports standby).
+    Standby,
+    /// Known monitor that is no longer part of the desktop (switched off with its button / unplugged).
+    Off,
+    /// No physical monitor has ever been detected.
+    NotDetected,
+}
+
+impl MonitorPowerState {
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::On => "on",
+            Self::Standby => "standby",
+            Self::Off => "off",
+            Self::NotDetected => "none",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Self {
+        match code {
+            "on" => Self::On,
+            "standby" => Self::Standby,
+            "off" => Self::Off,
+            _ => Self::NotDetected,
+        }
+    }
+
+    pub fn is_on(self) -> bool {
+        self == Self::On
+    }
+}
+
+/// One monitor sample: estimated wall power of the physical monitor(s) and the energy for the sample period.
+#[derive(Debug, Clone)]
+pub struct MonitorReading {
+    pub name: String,
+    pub state: MonitorPowerState,
+    /// Brightness 0-100 read via DDC/CI (None when unavailable).
+    pub brightness: Option<u32>,
+    pub watts: f64,
+    pub energy: EnergyUj,
+    /// Virtual displays currently in the desktop (e.g. "VDD by MTT" used by Sunshine/Moonlight).
+    pub virtual_displays: Vec<String>,
+    /// Whether the brightness came from a live DDC/CI read.
+    pub ddc_ok: bool,
 }
 
 /// Possible units to choose as output

@@ -40,6 +40,7 @@ struct Options {
     mqtt_tls: bool,
     db_mode: bool,
     data_dir: Option<std::path::PathBuf>,
+    export_md: bool,
     #[cfg(target_os = "windows")]
     install_cpu_driver: bool,
     #[cfg(target_os = "windows")]
@@ -119,6 +120,10 @@ fn options() -> OptionParser<Options> {
         .argument::<std::path::PathBuf>("PATH")
         .optional();
 
+    let export_md = long("export-md")
+        .help("Write the monthly electricity bill summary (Markdown, for AI analysis) to the reports folder and exit.")
+        .switch();
+
     let description = "WattSeal - Per-app power monitoring tool";
 
     #[cfg(target_os = "windows")]
@@ -145,6 +150,7 @@ fn options() -> OptionParser<Options> {
             mqtt_tls,
             db_mode,
             data_dir,
+            export_md,
             install_cpu_driver,
             uninstall_cpu_driver,
         })
@@ -168,6 +174,7 @@ fn options() -> OptionParser<Options> {
             mqtt_tls,
             db_mode,
             data_dir,
+            export_md,
         })
         .to_options()
         .descr(description);
@@ -331,6 +338,23 @@ fn run_linux_tray(ui_child: &Arc<Mutex<Option<Child>>>) -> bool {
 
 const DEFAULT_SAMPLING_INTERVAL: Duration = Duration::from_secs(1);
 
+/// `--export-md`: writes `relatorios/consumo-pc-AAAA-MM-DD.md` and prints its path.
+fn export_markdown_and_exit() {
+    let result = common::Database::new()
+        .map_err(|e| e.to_string())
+        .and_then(|db| common::billing::report::export_markdown(db.connection(), 12));
+    match result {
+        Ok(path) => {
+            common::clog!("✓ Markdown report written to {}", path.display());
+            println!("{}", path.display());
+        }
+        Err(e) => {
+            common::clog!("✗ Markdown export failed: {e}");
+            eprintln!("{e}");
+        }
+    }
+}
+
 /// Initializes the collector and configured output connectors.
 fn init_collector_and_connectors(options: &Options) -> Result<(Collector, Connectors), String> {
     let mut collector = Collector::new().map_err(|e| format!("Failed to create Collector: {e}"))?;
@@ -419,6 +443,11 @@ fn run_collector_loop(mut collector: Collector, mut connectors: Connectors) {
 fn main() {
     let options = options().run();
     common::paths::init(options.data_dir.as_ref());
+
+    if options.export_md {
+        export_markdown_and_exit();
+        return;
+    }
 
     #[cfg(target_os = "windows")]
     {
