@@ -1,0 +1,47 @@
+# Build do fork (Crateús/CE): testa e gera o WattSeal-windows.exe como artefato.
+name: Fork Windows build
+
+on:
+  push:
+    branches: ["main", "dev/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    name: Windows x64 (test + release)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Check
+        run: cargo check --workspace --all-targets
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Package
+        shell: bash
+        run: cp target/release/WattSeal.exe WattSeal-windows.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WattSeal-windows
+          path: WattSeal-windows.exe
+          retention-days: 30
