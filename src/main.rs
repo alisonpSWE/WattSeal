@@ -441,6 +441,12 @@ fn run_collector_loop(mut collector: Collector, mut connectors: Connectors) {
 }
 
 fn main() {
+    // Fork fix: PawnIO boot service entry point (must run before argument parsing).
+    #[cfg(target_os = "windows")]
+    if collector::sensors::cpu::windows_cpu::run_boot_service_if_requested() {
+        return;
+    }
+
     let options = options().run();
     common::paths::init(options.data_dir.as_ref());
 

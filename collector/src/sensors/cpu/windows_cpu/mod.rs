@@ -33,6 +33,14 @@ pub fn uninstall() -> bool {
     }
 }
 
+/// Fork fix: the PawnIO boot service ("PawnIO user access (msr-driver-rs)") starts a copy of this
+/// executable with `--msr-driver-rs-boot-service`. It must be dispatched before any CLI parsing,
+/// otherwise the service fails at every boot (error 1053) and the driver stays admin-only.
+/// Returns `true` when this process was the boot service and must exit.
+pub fn run_boot_service_if_requested() -> bool {
+    msr_driver_rs::run_boot_service_if_requested()
+}
+
 pub fn setup() {
     let installed = match MsrDriverReader::is_installed() {
         Ok(installed) => installed,
