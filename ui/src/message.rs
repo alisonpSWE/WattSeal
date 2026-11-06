@@ -46,4 +46,6 @@ pub enum Message {
     CloseAll,
     OpenFolder(std::path::PathBuf),
     OpenUrl(String),
+    /// Fork: electricity bill page.
+    Bill(crate::pages::bill::BillMessage),
 }

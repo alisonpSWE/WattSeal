@@ -1,3 +1,4 @@
+pub mod bill;
 pub mod dashboard;
 pub mod info;
 pub mod settings;
@@ -30,13 +31,14 @@ macro_rules! define_pages {
     };
 }
 
-define_pages!(Dashboard, Info);
+define_pages!(Dashboard, Bill, Info);
 
 impl Page {
     /// Returns the translated page name for the given language.
     pub fn translated_name(&self, language: AppLanguage) -> &'static str {
         match self {
             Page::Dashboard => page_dashboard(language),
+            Page::Bill => bill::page_name(language),
             Page::Info => page_info(language),
         }
     }

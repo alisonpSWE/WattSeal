@@ -167,6 +167,7 @@ pub enum AppLanguage {
     French,
     German,
     Romanian,
+    Portuguese,
 }
 
 impl AppLanguage {
@@ -174,6 +175,7 @@ impl AppLanguage {
     pub const fn all() -> &'static [AppLanguage] {
         &[
             AppLanguage::English,
+            AppLanguage::Portuguese,
             AppLanguage::French,
             AppLanguage::Chinese,
             AppLanguage::German,
@@ -189,6 +191,7 @@ impl AppLanguage {
             AppLanguage::French => "FR",
             AppLanguage::Chinese => "ZH",
             AppLanguage::Romanian => "RO",
+            AppLanguage::Portuguese => "PT",
         }
     }
 
@@ -200,6 +203,7 @@ impl AppLanguage {
             "FR" => AppLanguage::French,
             "ZH" => AppLanguage::Chinese,
             "RO" => AppLanguage::Romanian,
+            "PT" => AppLanguage::Portuguese,
             _ => AppLanguage::English,
         }
     }
@@ -224,6 +228,7 @@ impl Display for AppLanguage {
             AppLanguage::French => write!(f, "Français"),
             AppLanguage::Chinese => write!(f, "简体中文"),
             AppLanguage::Romanian => write!(f, "Română"),
+            AppLanguage::Portuguese => write!(f, "Português (Brasil)"),
         }
     }
 }

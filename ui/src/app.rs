@@ -15,7 +15,13 @@ use iced::{
 use crate::{
     components::{footer::Footer, header::Header, helpers::modal, sensor_state::SensorState},
     message::Message,
-    pages::{Page, dashboard::DashboardPage, info::InfoPage, settings::SettingsPage},
+    pages::{
+        Page,
+        bill::{self, BillState},
+        dashboard::DashboardPage,
+        info::InfoPage,
+        settings::SettingsPage,
+    },
     styles::{
         button::ButtonStyle,
         container::ContainerStyle,
@@ -75,6 +81,8 @@ pub struct App {
     close_behavior: CloseBehavior,
     remember_close_choice: bool,
     database_migration_pending: bool,
+    /// Fork: electricity bill page state.
+    bill: BillState,
 }
 
 impl App {
@@ -164,6 +172,7 @@ impl App {
             })
             .collect();
         let dashboard_page = DashboardPage;
+        let bill = BillState::load(&database);
         let mut app = Self {
             current_page,
             sensors,
@@ -192,6 +201,7 @@ impl App {
             close_behavior,
             remember_close_choice: false,
             database_migration_pending: false,
+            bill,
         };
         app.refresh_all_time_data();
         let task = Task::done(Message::FetchAllChartsData(TimeRange::default()));
@@ -233,6 +243,7 @@ impl App {
                 close_behavior: CloseBehavior::default(),
                 remember_close_choice: false,
                 database_migration_pending: true,
+                bill: BillState::default(),
             },
             Task::none(),
         )
@@ -254,6 +265,11 @@ impl App {
                 }
                 self.refresh_all_time_data();
                 self.tick_count += 1;
+                if self.tick_count % 10 == 0 {
+                    self.bill.refresh(&self.database);
+                } else if self.current_page == Page::Bill && self.tick_count % 2 == 0 {
+                    self.bill.monitor = common::billing::read_monitor_status(self.database.connection());
+                }
                 // Need to wait for 2 ticks before refreshing processes for the first time because it needs 2 ticks to compute the delta
                 if self.tick_count == 2 || self.tick_count % 10 == 0 {
                     self.refresh_process_data();
@@ -534,6 +550,7 @@ impl App {
                 open::that(path).ok();
                 Task::none()
             }
+            Message::Bill(message) => self.bill.update(message, &mut self.database, self.language),
             Message::OpenUrl(url) => {
                 if url.starts_with("https://") || url.starts_with("http://") {
                     open::that(&url).ok();
@@ -638,7 +655,9 @@ impl App {
                 self.language,
                 self.carbon_intensity,
                 self.electricity_cost,
+                self.bill.dashboard_month_cost(),
             ),
+            Page::Bill => bill::view(&self.bill, self.language, self.current_total_watts()),
             Page::Info => self.info_page.view(&self.hardware_info, self.theme, self.language),
         };
 
@@ -1002,6 +1021,16 @@ impl App {
             CloseBehavior::Everything => std::process::exit(common::EXIT_CODE_SHUTDOWN_ALL),
             CloseBehavior::Ask => Task::none(),
         }
+    }
+
+    /// Latest total power (already PSU-corrected), in W.
+    fn current_total_watts(&self) -> f64 {
+        self.sensors
+            .get(TotalData::table_name_static())
+            .and_then(|s| s.get_latest_reading())
+            .and_then(|d| d.total_energy())
+            .map(|e| e.as_watts_for_seconds(1.0))
+            .unwrap_or(0.0)
     }
 
     fn psu_factor(&self) -> f64 {

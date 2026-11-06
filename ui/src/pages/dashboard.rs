@@ -39,13 +39,21 @@ impl DashboardPage {
         language: AppLanguage,
         carbon_intensity: CarbonIntensity,
         electricity_cost: ElectricityCost,
+        month_bill: Option<f64>,
     ) -> Element<'a, Message, AppTheme> {
         let content = Column::new()
             .spacing(SPACING_XLARGE)
             .padding(Padding::from(PADDING_LARGE))
             .width(Length::Fill)
             .height(Length::Fill)
-            .push(self.view_power_summary(sensors, all_time_data, language, carbon_intensity, electricity_cost));
+            .push(self.view_power_summary(
+                sensors,
+                all_time_data,
+                language,
+                carbon_intensity,
+                electricity_cost,
+                month_bill,
+            ));
 
         let additional_content = Column::new()
             .spacing(SPACING_XLARGE)
@@ -73,6 +81,7 @@ impl DashboardPage {
         language: AppLanguage,
         carbon_intensity: CarbonIntensity,
         electricity_cost: ElectricityCost,
+        month_bill: Option<f64>,
     ) -> Element<'a, Message, AppTheme> {
         let raw_power = sensors
             .get(TotalData::table_name_static())
@@ -159,15 +168,19 @@ impl DashboardPage {
             );
         }
 
+        // Fork: with the automatic ANEEL tariff the tile shows this month's cost (PC + monitor).
+        let (bill_label, bill_val, bill_unit) = match month_bill {
+            Some(cost) => (
+                crate::pages::bill::t(language, "Conta do mês (PC+monitor)", "This month (PC+monitor)"),
+                format_number(cost.max(0.0), 2, language),
+                "R$",
+            ),
+            None => (electricity_bill(language), bill_val, electricity_cost.currency_symbol),
+        };
         let bill_col = Column::new()
             .spacing(SPACING_SMALL)
             .align_x(Alignment::Center)
-            .push(metric_tile(
-                electricity_bill(language),
-                bill_val,
-                electricity_cost.currency_symbol,
-                TextStyle::Primary,
-            ));
+            .push(metric_tile(bill_label, bill_val, bill_unit, TextStyle::Primary));
 
         let side = Row::new()
             .width(Length::FillPortion(1))
