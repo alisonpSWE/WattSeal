@@ -460,7 +460,7 @@ fn month_card<'a>(report: &'a BillingReport, language: AppLanguage) -> Element<'
         ))
         .push(tile(
             t(language, "Preço médio", "Average price"),
-            format!("{}/kWh", money(m.avg_price(), language)),
+            format!("R$ {}/kWh", format_number(m.avg_price(), 3, language)),
             if m.flags.is_empty() {
                 String::new()
             } else {
@@ -597,8 +597,8 @@ fn tariff_card<'a>(state: &'a BillState, report: &'a BillingReport, language: Ap
             col = col
                 .push(
                     Text::new(format!(
-                        "{}/kWh {}",
-                        money(p.final_kwh, language),
+                        "R$ {}/kWh {}",
+                        format_number(p.final_kwh, 4, language),
                         t(language, "com impostos", "with taxes")
                     ))
                     .size(FONT_SIZE_SUBTITLE)
