@@ -298,6 +298,18 @@ impl GPUSensor {
     pub fn name(&self) -> String {
         self.name.to_string()
     }
+
+    /// Fork: identity of the physical GPU behind this sensor, used to skip duplicate DXGI adapters
+    /// (a virtual display driver such as "VDD by MTT" exposes the same AMD GPU under a second LUID,
+    /// which made the GPU power count twice).
+    pub fn physical_id(&self) -> Option<String> {
+        match &self.inner {
+            #[cfg(target_os = "windows")]
+            GPUSensorInner::Amd(sensor) => sensor.physical_id(),
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -367,6 +379,11 @@ mod amd_gpu {
     }
 
     impl AmdGPUSensor {
+        /// ADLX unique id of the matched physical GPU.
+        pub fn physical_id(&self) -> Option<String> {
+            self.gpu.unique_id().ok().map(|id| format!("amd:{id}"))
+        }
+
         pub fn new(adapter: &GpuAdapter, fallback_index: u32) -> Result<Self, SensorError> {
             let helper = get_or_init_adlx().map_err(SensorError::ReadError)?;
             common::clog!("AMD GPU ('{}'): ADLX version {}", adapter.name, helper.full_version());

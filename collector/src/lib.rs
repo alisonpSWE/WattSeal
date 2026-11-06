@@ -67,6 +67,7 @@ impl Collector {
         }
 
         let (mut nvidia_index, mut amd_index, mut intel_index) = (0u32, 0u32, 0u32);
+        let mut seen_physical_gpus = std::collections::HashSet::new();
         for adapter in &adapters {
             let display_index = match adapter.vendor {
                 GPUVendor::Nvidia => {
@@ -103,6 +104,18 @@ impl Collector {
 
             match sensors::gpu::get_gpu_energy_sensor(adapter, display_index) {
                 Ok(sensor) => {
+                    if let SensorType::GPU(gpu) = &sensor {
+                        if let Some(id) = gpu.physical_id() {
+                            if !seen_physical_gpus.insert(id.clone()) {
+                                clog!(
+                                    "⚠ Skipping GPU adapter '{}' ({}): same physical GPU as an adapter already added ({id})",
+                                    adapter.name,
+                                    display_index
+                                );
+                                continue;
+                            }
+                        }
+                    }
                     clog!("✓ GPU sensor initialized: '{} ({})'", adapter.name, display_index);
                     sensors.push(sensor);
                 }

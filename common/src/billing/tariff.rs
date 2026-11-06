@@ -356,8 +356,8 @@ pub struct TariffBook {
 }
 
 impl TariffBook {
+    /// Read-only: never writes (the UI calls it every few seconds).
     pub fn load(conn: &Connection, distributor: &str) -> rusqlite::Result<Self> {
-        let _ = seed_defaults(conn, distributor);
         let mut periods = Vec::new();
         let mut origins = Vec::new();
         {
@@ -401,6 +401,23 @@ impl TariffBook {
             for row in rows {
                 let (m, f, a) = row?;
                 flags.insert(m, (f, a));
+            }
+        }
+        if periods.is_empty() && distributor == "ENEL CE" {
+            for (start, end, tusd, te, reh) in SEED_ENEL_CE {
+                if let (Ok(start), Ok(end)) = (
+                    NaiveDate::parse_from_str(start, "%Y-%m-%d"),
+                    NaiveDate::parse_from_str(end, "%Y-%m-%d"),
+                ) {
+                    periods.push(TariffPeriod {
+                        start,
+                        end,
+                        tusd_mwh: *tusd,
+                        te_mwh: *te,
+                        resolution: reh.to_string(),
+                    });
+                    origins.push("embutido".to_string());
+                }
             }
         }
         let origin = if origins.iter().any(|o| o == "aneel") {
