@@ -337,10 +337,10 @@ pub fn to_markdown(r: &BillingReport) -> String {
         md.push_str("Bandeira ou tarifa ainda não publicada pela ANEEL em algum mês: usado o último valor conhecido.\n");
     }
 
-    let with_components: Vec<&MonthReport> = r.months.iter().filter(|m| !m.components.is_empty()).collect();
-    if !with_components.is_empty() {
-        md.push_str("\n## Componentes (kWh medidos, antes das perdas da fonte)\n");
-        for m in with_components {
+    let component_lines: Vec<String> = r
+        .months
+        .iter()
+        .filter_map(|m| {
             let mut comps = m.components.clone();
             comps.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
             let list: Vec<String> = comps
@@ -348,9 +348,13 @@ pub fn to_markdown(r: &BillingReport) -> String {
                 .filter(|(_, kwh)| *kwh >= 0.005)
                 .map(|(n, kwh)| format!("{} {}", component_label(n), fmt_br(*kwh, 2)))
                 .collect();
-            if !list.is_empty() {
-                md.push_str(&format!("- {}: {}\n", m.label, list.join(" · ")));
-            }
+            (!list.is_empty()).then(|| format!("- {}: {}\n", m.label, list.join(" · ")))
+        })
+        .collect();
+    if !component_lines.is_empty() {
+        md.push_str("\n## Componentes (kWh medidos, antes das perdas da fonte)\n");
+        for line in component_lines {
+            md.push_str(&line);
         }
     }
     md
